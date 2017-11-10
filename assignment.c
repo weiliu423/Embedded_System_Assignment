@@ -20,6 +20,8 @@ struct neighbor {
   struct neighbor *next;
   //addr hold Rime address
   linkaddr_t addr;
+  //last_RSSi hold the RSSI value and last_lqi holds the link quality value 
+  uint16_t last_rssi, last_lqi;
 };
 
 MEMB(neighbors_memb, struct neighbor, MAX_NEIGHBORS);
@@ -37,6 +39,16 @@ broadcast_recv(struct broadcast_conn *c, const linkaddr_t *from)
     if(linkaddr_cmp(&n->addr, from)) {
 	printf("\nNode Already saved in list!\n");
         break;
+    }else if(n == NULL) {
+        // if n is empty, then allocate new memory block using struct neighbor
+	printf("\nRegister Node into list\n");
+        n = memb_alloc(&neighbors_memb);
+
+        // Initialize the fields. 
+        linkaddr_copy(&n->addr, from);
+
+        // add neighbor into list.
+        list_add(neighbors_list, n);
     }
   }
 
@@ -52,8 +64,15 @@ broadcast_recv(struct broadcast_conn *c, const linkaddr_t *from)
     list_add(neighbors_list, n);
   }
 
-  printf("broadcast message received from %d.%d: '%s'\n",
-         from->u8[0], from->u8[1], (char *)packetbuf_dataptr());
+    //fill in RSSI and LQI into neighbor 
+  n->last_rssi = packetbuf_attr(PACKETBUF_ATTR_RSSI);
+  n->last_lqi = packetbuf_attr(PACKETBUF_ATTR_LINK_QUALITY);
+
+ printf("broadcast message received from %d.%d with RSSI %u, LQI %u:'%s'\n",
+         from->u8[0], from->u8[1],
+         packetbuf_attr(PACKETBUF_ATTR_RSSI),
+         packetbuf_attr(PACKETBUF_ATTR_LINK_QUALITY), 
+         (char *)packetbuf_dataptr());
 }
 static const struct broadcast_callbacks broadcast_call = {broadcast_recv};
 /*---------------------------------------------------------------------------*/
